@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ARTG Explorer</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F4F9; --panel:#FFFFFF; --ink:#0F1A33; --muted:#5A6781; --line:#DCE1EC; --line-soft:#EBEEF5;
+  --accent:#1F3DDB; --accent-ink:#FFFFFF; --accent-soft:#E7ECFF; --mark:#FFE08A; --hover:#F6F8FD;
+  --t-device:#2F5BEA; --t-medicine:#0B8A78; --t-bio:#8546D1;
+  --bar:#C9D3F5; --bar-off:#E3E7F1; --danger:#B3261E;
+  --serif:'Newsreader',Georgia,'Times New Roman',serif;
+  --sans:'Public Sans',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --hh:58px;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1120; --panel:#131B2E; --ink:#E7ECF7; --muted:#9AA7C1; --line:#26314D; --line-soft:#1D2740;
+    --accent:#7C93FF; --accent-ink:#0B1120; --accent-soft:#1E2B5C; --mark:#5E4C10; --hover:#18223A;
+    --t-device:#7C9BFF; --t-medicine:#3FCDB6; --t-bio:#B88BFF;
+    --bar:#3A4C8F; --bar-off:#222C46; --danger:#FF8A80;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1120; --panel:#131B2E; --ink:#E7ECF7; --muted:#9AA7C1; --line:#26314D; --line-soft:#1D2740;
+  --accent:#7C93FF; --accent-ink:#0B1120; --accent-soft:#1E2B5C; --mark:#5E4C10; --hover:#18223A;
+  --t-device:#7C9BFF; --t-medicine:#3FCDB6; --t-bio:#B88BFF;
+  --bar:#3A4C8F; --bar-off:#222C46; --danger:#FF8A80;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:400 14.5px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+a{color:var(--accent)}
+
+#loading{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--panel);padding:24px}
+.lbox{max-width:420px;text-align:left}
+.lbox h2{font:500 28px/1.15 var(--serif);margin:0 0 8px}
+.lsub{color:var(--muted);margin:0 0 16px}
+.lbox code{background:var(--bg);padding:1px 5px;border-radius:4px}
+
+/* ---------- App shell ---------- */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--panel);z-index:30}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;height:var(--hh);display:flex;align-items:center;gap:16px;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+.top .name{font:600 17px var(--serif);letter-spacing:.005em}
+.top .snap{color:var(--muted);font-size:13px}
+.top .sp{flex:1}
+.link{background:none;border:0;color:var(--muted);padding:6px 8px;border-radius:6px;font-weight:500}
+a.link{text-decoration:none;display:inline-block}
+.link:hover{color:var(--ink);background:var(--hover)}
+.shell{display:grid;grid-template-columns:304px minmax(0,1fr);align-items:start}
+#filters{position:sticky;top:calc(var(--hh) + env(safe-area-inset-top,0px));max-height:calc(100vh - var(--hh) - env(safe-area-inset-top,0px));overflow:auto;background:var(--panel);border-right:1px solid var(--line);padding:6px 0 28px}
+.fhead{display:none}
+details.fs{border-bottom:1px solid var(--line-soft);padding:4px 18px 12px}
+details.fs>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 0 8px;font-weight:600;font-size:13.5px}
+details.fs>summary::-webkit-details-marker{display:none}
+details.fs>summary::after{content:"";width:7px;height:7px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);margin:-3px 3px 0 0;transition:transform .15s}
+details.fs[open]>summary::after{transform:rotate(-135deg);margin-top:3px}
+.fs .badge{background:var(--accent);color:var(--accent-ink);border-radius:20px;font-size:11.5px;padding:0 7px;margin-left:8px;font-weight:600}
+.fsearch{width:100%;height:34px;border:1px solid var(--line);border-radius:7px;padding:0 10px;margin:2px 0 8px;background:var(--panel);font-size:13.5px}
+.fsearch:focus{border-color:var(--accent)}
+.opt{position:relative;display:flex;align-items:flex-start;gap:9px;padding:5px 6px;margin:0 -6px;border-radius:6px;cursor:pointer;overflow:hidden;font-size:13.5px}
+.opt:hover{background:var(--hover)}
+.opt::before{content:"";position:absolute;left:0;bottom:0;height:2px;width:var(--w,0%);background:var(--bar);border-radius:2px}
+.opt input{margin:3px 0 0;accent-color:var(--accent);flex:none}
+.olab{flex:1;min-width:0;overflow-wrap:anywhere}
+.olab small{color:var(--muted);margin-left:4px}
+.ocnt{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12.5px;padding-top:1px}
+.more{background:none;border:0;color:var(--accent);padding:6px 0 0;font-weight:600;font-size:13px}
+.none{color:var(--muted);font-size:13px;padding:4px 0}
+.dates{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dates label{font-size:12px;color:var(--muted);display:block}
+.dates input{width:100%;height:34px;border:1px solid var(--line);border-radius:7px;padding:0 8px;background:var(--panel);font-size:13px}
+.chk{display:flex;gap:9px;align-items:center;margin-top:10px;font-size:13.5px;cursor:pointer}
+.chk input{accent-color:var(--accent)}
+
+main{padding:22px 28px 60px;min-width:0}
+.searchrow{display:flex;gap:10px}
+.sbox{position:relative;flex:1}
+.sbox input{width:100%;height:50px;border:1px solid var(--line);border-radius:10px;padding:0 44px 0 16px;background:var(--panel);font-size:16px}
+.sbox input:focus{border-color:var(--accent);outline:2px solid var(--accent-soft);outline-offset:0}
+.sbox .x{position:absolute;right:8px;top:9px;width:32px;height:32px;border:0;background:none;color:var(--muted);font-size:20px;border-radius:6px}
+.sbox .x:hover{background:var(--hover);color:var(--ink)}
+.hint{color:var(--muted);font-size:12.5px;margin:6px 2px 0}
+#openFilters{display:none;height:50px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:0 16px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--ink);border:1px solid transparent;border-radius:999px;padding:3px 6px 3px 12px;font-size:13px;max-width:100%}
+.chip b{font-weight:600}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46ch}
+.chip button{border:0;background:none;width:20px;height:20px;border-radius:50%;color:var(--muted);line-height:1;font-size:15px}
+.chip button:hover{background:var(--panel);color:var(--ink)}
+.clear{background:none;border:0;color:var(--accent);font-weight:600;padding:4px 6px}
+
+.timeline{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px 8px}
+.tl-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.tl-h strong{color:var(--ink);font-weight:600;font-size:13px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:54px}
+.bar{flex:1;min-width:2px;background:var(--bar);border:0;padding:0;border-radius:2px 2px 0 0;min-height:1px}
+.bar:hover{background:var(--accent)}
+.bar.off{background:var(--bar-off)}
+.bar.on{background:var(--accent)}
+.axis{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+
+.rhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:26px 0 10px;flex-wrap:wrap}
+.count{font:500 30px/1.1 var(--serif);letter-spacing:-.005em}
+.count small{display:block;font:400 13px var(--sans);color:var(--muted);margin-top:4px;letter-spacing:0}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tools label{font-size:13px;color:var(--muted)}
+.tools select{height:36px;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:0 8px;margin-left:6px}
+.ghost{height:36px;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:0 14px;font-weight:600;font-size:13.5px}
+.ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+.twrap{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th{text-align:left;font-weight:600;font-size:12.5px;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--panel)}
+td{padding:10px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tr.row{cursor:pointer}
+tr.row:hover td{background:var(--hover)}
+tr.row.open td{background:var(--hover);border-bottom-color:transparent}
+.c-id{width:86px;font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.c-name{min-width:260px}
+.pn{font-weight:600;overflow-wrap:anywhere}
+.sub-sponsor{display:none;color:var(--muted);font-size:13px;margin-top:2px}
+.sub-date{display:none}
+.c-type{white-space:nowrap}
+.c-date{white-space:nowrap;font-variant-numeric:tabular-nums}
+.c-cat,.c-cls{white-space:nowrap}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.mk{background:var(--mark);color:inherit;border-radius:2px;padding:0 1px}
+tr.detail td{padding:0 12px 16px 98px;background:var(--hover)}
+.dgrid{display:grid;grid-template-columns:130px 1fr;gap:8px 16px;font-size:13.5px;padding-top:2px}
+.dgrid dt{color:var(--muted)}
+.dgrid dd{margin:0;overflow-wrap:anywhere}
+.ings{display:flex;flex-wrap:wrap;gap:6px}
+.ing{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:2px 10px;font-size:12.5px}
+.ing:hover{border-color:var(--accent);color:var(--accent)}
+.inl{background:none;border:0;padding:0;color:var(--accent);font-weight:500;text-align:left}
+.inl:hover{text-decoration:underline}
+.links{display:flex;flex-wrap:wrap;gap:6px 18px}
+.empty{padding:56px 24px;text-align:center}
+.empty h3{font:500 22px var(--serif);margin:0 0 6px}
+.empty p{color:var(--muted);margin:0 0 16px}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}
+.pager .btns{display:flex;gap:6px}
+.pager button{height:34px;min-width:34px;padding:0 12px;border:1px solid var(--line);background:var(--panel);border-radius:8px;font-weight:600}
+.pager button:disabled{opacity:.4;cursor:default}
+.pager button:not(:disabled):hover{border-color:var(--accent);color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:13.5px;z-index:60}
+
+
+.newdata{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 20px;background:var(--accent-soft);border-bottom:1px solid var(--line);font-weight:500}
+.btn.sm{height:32px;padding:0 14px;font-size:13.5px}
+.modal{position:fixed;inset:0;background:rgba(10,16,32,.55);display:flex;align-items:center;justify-content:center;z-index:70;padding:20px}
+.mbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:460px;width:100%;padding:24px 24px 20px}
+.mbox h3{font:500 22px var(--serif);margin:0 0 12px}
+.mbox p{margin:0 0 12px}
+.mbox .warn{color:var(--danger);font-weight:500}
+.mnote{color:var(--muted);font-size:13px;min-height:20px}
+.mact{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.mact .btn,.mact .ghost{height:40px}
+.prog{height:6px;background:var(--bar-off);border-radius:4px;overflow:hidden;margin:16px 0 10px}
+.prog i{display:block;height:100%;background:var(--accent)}
+@media (max-width:1000px){
+  .shell{grid-template-columns:1fr}
+  #filters{position:fixed;inset:0;z-index:50;max-height:none;border:0;padding-top:env(safe-area-inset-top,0px);transform:translateX(-100%);visibility:hidden;transition:transform .2s}
+  #filters.open{transform:none;visibility:visible}
+  .fhead{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--panel);padding:12px 18px;border-bottom:1px solid var(--line);z-index:2;font-weight:600}
+  .fhead .btn{height:36px}
+  #openFilters{display:block}
+  main{padding:16px 14px 60px}
+  .top .snap{display:none}
+}
+@media (max-width:720px){
+  table{min-width:0}
+  th.c-sponsor,td.c-sponsor,th.c-cat,td.c-cat,th.c-cls,td.c-cls,th.c-date,td.c-date{display:none}
+  .sub-sponsor{display:block}
+  .sub-date{display:inline}
+  .sub-date{display:inline}
+  tr.detail td{padding-left:12px}
+  .dgrid{grid-template-columns:1fr;gap:2px}
+  .dgrid dd{margin-bottom:8px}
+  .c-name{min-width:0}
+  .count{font-size:26px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<section id="loading" role="status"><div class="lbox"><h2>Loading the register…</h2><p class="lsub">About 2 MB, one moment.</p></div></section>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="name">ARTG Explorer</div>
+    <div class="snap" id="snap"></div>
+    <div class="sp"></div>
+    <a class="link" href="https://www.tga.gov.au/resources/artg" target="_blank" rel="noopener">TGA register</a>
+  </header>
+  <div class="shell">
+    <aside id="filters" aria-label="Filters">
+      <div class="fhead"><span>Filters</span><button class="btn" id="closeFilters" type="button">Show results</button></div>
+      <details class="fs" open><summary>Registration type<span id="b-types"></span></summary><div id="l-types"></div></details>
+      <details class="fs" open><summary>Licence category<span id="b-cats"></span></summary><div id="l-cats"></div></details>
+      <details class="fs" open><summary>Licence class<span id="b-clss"></span></summary><div id="l-clss"></div></details>
+      <details class="fs" open><summary>Sponsor<span id="b-spn"></span></summary>
+        <input class="fsearch" id="s-spn" type="search" placeholder="Find a sponsor" aria-label="Find a sponsor"><div id="l-spn"></div></details>
+      <details class="fs"><summary>Manufacturer<span id="b-mfr"></span></summary>
+        <input class="fsearch" id="s-mfr" type="search" placeholder="Find a manufacturer" aria-label="Find a manufacturer"><div id="l-mfr"></div></details>
+      <details class="fs"><summary>Ingredient<span id="b-ing"></span></summary>
+        <input class="fsearch" id="s-ing" type="search" placeholder="Find an ingredient" aria-label="Find an ingredient">
+        <div id="l-ing"></div><div class="hint" style="margin-top:8px">Picking several shows goods that contain all of them.</div></details>
+      <details class="fs" open><summary>Registered &amp; documents</summary>
+        <div class="dates">
+          <label>From<input type="date" id="dFrom"></label>
+          <label>To<input type="date" id="dTo"></label>
+        </div>
+        <label class="chk"><input type="checkbox" id="fPI"> Has Product Information</label>
+        <label class="chk"><input type="checkbox" id="fCMI"> Has Consumer Medicine Information</label>
+      </details>
+    </aside>
+
+    <main>
+      <div class="searchrow">
+        <button id="openFilters" type="button">Filters</button>
+        <div class="sbox">
+          <input id="q" type="search" placeholder="Search product, sponsor, manufacturer, ingredient or ARTG ID" aria-label="Search the register" autocomplete="off">
+          <button class="x" id="qx" type="button" aria-label="Clear search" hidden>&times;</button>
+        </div>
+      </div>
+      <div class="hint">Separate words match together, so “paracetamol tablet” finds goods containing both. Press / to jump here.</div>
+      <div class="chips" id="chips"></div>
+
+      <section class="timeline" aria-label="Registrations per year">
+        <div class="tl-h"><strong>Registered per year</strong><span id="tlhint">Click a year to filter, shift-click to extend</span></div>
+        <div class="bars" id="bars"></div>
+        <div class="axis"><span id="ax0"></span><span id="ax1"></span><span id="ax2"></span></div>
+      </section>
+
+      <div class="rhead">
+        <div class="count" id="count"></div>
+        <div class="tools">
+          <label>Sort by
+            <select id="sort">
+              <option value="newest">Newest registered</option>
+              <option value="oldest">Oldest registered</option>
+              <option value="name">Product A–Z</option>
+              <option value="sponsor">Sponsor A–Z</option>
+              <option value="id">ARTG ID, highest first</option>
+            </select>
+          </label>
+          <button class="ghost" id="export" type="button" hidden>Export CSV</button>
+        </div>
+      </div>
+
+      <div class="twrap">
+        <table>
+          <thead><tr>
+            <th class="c-id">ARTG ID</th><th class="c-name">Product</th><th class="c-sponsor">Sponsor</th>
+            <th class="c-type">Type</th><th class="c-cat">Category</th><th class="c-cls">Class</th><th class="c-date">Registered</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty" id="empty" hidden>
+          <h3>No goods match these filters</h3>
+          <p>Remove a filter or shorten your search to see more.</p>
+          <button class="btn" id="emptyClear" type="button">Clear all filters</button>
+        </div>
+      </div>
+      <div class="pager" id="pager"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const $=(s,r)=>(r||document).querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf=new Intl.NumberFormat('en-AU');
+const PS=50, NA=-2147483648;
+
+/* ---------- Load the data file ---------- */
+let bound=false;
+async function loadData(){
+  const r=await fetch('data/artg.json.gz',{cache:'no-cache'});
+  if(!r.ok) throw new Error('The data file couldn’t be loaded (HTTP '+r.status+').');
+  const buf=new Uint8Array(await r.arrayBuffer());
+  const gz=buf[0]===0x1f&&buf[1]===0x8b;   // some hosts decompress for us; handle both
+  const text=gz?await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text():new TextDecoder().decode(buf);
+  return JSON.parse(text);
+}
+function showLoadError(x){
+  $('#loading').innerHTML='<div class="lbox"><h2>The register didn’t load</h2><p>'+esc((x&&x.message)||'Something went wrong.')+'</p><p class="lsub">If you opened this file straight from your computer, serve it from a web server instead (for example run <code>python -m http.server</code> in the site folder).</p><button class="btn" type="button" onclick="location.reload()">Try again</button></div>';
+}
+loadData().then(start).catch(showLoadError);
+function setupShared(){}
+
+
+
+/* ---------- State ---------- */
+let D,N,ids,nameL,sponsorL,dateD,yearY,typeI,catI,clsI,spnI,mfrI,rowIng,hasPI,hasCMI,hay;
+let mask,R,minYear,maxYear,orders={},dlMode='none';
+const S={q:'',types:new Set(),cats:new Set(),clss:new Set(),spn:new Set(),mfr:new Set(),ing:new Set(),from:null,to:null,pi:false,cmi:false,sort:'newest',page:0};
+const CATDESC={INC:'Included device',RE:'Registered medicine',LI:'Listed medicine',IVD:'Included IVD device'};
+const TYPECOL={Device:'var(--t-device)',Medicine:'var(--t-medicine)',Biological:'var(--t-bio)'};
+const small={
+  types:{key:'types',names:null,counts:null,label:'Registration type',order:'fixed'},
+  cats:{key:'cats',names:null,counts:null,label:'Category'},
+  clss:{key:'clss',names:null,counts:null,label:'Class'}
+};
+const big={
+  spn:{key:'spn',label:'Sponsor',names:null,lower:null,counts:null,q:'',limit:8},
+  mfr:{key:'mfr',label:'Manufacturer',names:null,lower:null,counts:null,q:'',limit:8},
+  ing:{key:'ing',label:'Ingredient',names:null,lower:null,counts:null,q:'',limit:8}
+};
+const setOf=k=>S[k];
+
+function resetState(){
+  ['types','cats','clss','spn','mfr','ing'].forEach(k=>S[k].clear());
+  S.q='';S.from=S.to=null;S.pi=S.cmi=false;S.page=0;S.sort='newest';
+  openRow=null;orders={};
+  for(const k in big){big[k].q='';big[k].limit=8;$('#s-'+k).value=''}
+  $('#q').value='';$('#dFrom').value='';$('#dTo').value='';$('#fPI').checked=false;$('#fCMI').checked=false;$('#sort').value='newest';
+}
+function start(data){
+  resetState();
+  D=data; N=D.n;
+  ids=Int32Array.from(D.id);
+  typeI=Int16Array.from(D.type); catI=Int16Array.from(D.cat); clsI=Int16Array.from(D.cls);
+  spnI=Int32Array.from(D.spn); mfrI=Int32Array.from(D.mfr);
+  dateD=new Int32Array(N); yearY=new Int16Array(N);
+  minYear=9999;maxYear=0;
+  let minD=1e9,maxD=-1e9;
+  for(let i=0;i<N;i++){
+    const d=D.date[i];
+    if(d==null){dateD[i]=NA;yearY[i]=0}
+    else{dateD[i]=d;const y=new Date(d*864e5).getUTCFullYear();yearY[i]=y;if(y<minYear)minYear=y;if(y>maxYear)maxYear=y;if(d<minD)minD=d;if(d>maxD)maxD=d}
+  }
+  rowIng=new Array(N).fill(null);
+  for(const k in D.ingRows) rowIng[+k]=D.ingRows[k];
+  hasPI=new Uint8Array(N);hasCMI=new Uint8Array(N);
+  for(const k in D.pi) hasPI[+k]=1;
+  for(const k in D.cmi) hasCMI[+k]=1;
+  nameL=D.name.map(s=>s.toLowerCase());
+  sponsorL=D.spn.map(i=>i<0?'':D.spns[i].toLowerCase());
+  const ingLow=D.ings.map(s=>s.toLowerCase());
+  hay=new Array(N);
+  for(let i=0;i<N;i++){
+    let h=nameL[i]+' '+sponsorL[i]+' '+ids[i];
+    if(mfrI[i]>=0) h+=' '+D.mfrs[mfrI[i]].toLowerCase();
+    const r=rowIng[i]; if(r) for(let j=0;j<r.length;j++) h+=' '+ingLow[r[j]];
+    hay[i]=h;
+  }
+  small.types.names=D.types; small.cats.names=D.cats; small.clss.names=D.clss;
+  big.spn.names=D.spns; big.spn.lower=D.spns.map(s=>s.toLowerCase());
+  big.mfr.names=D.mfrs; big.mfr.lower=D.mfrs.map(s=>s.toLowerCase());
+  big.ing.names=D.ings; big.ing.lower=ingLow;
+  $('#snap').textContent='Register snapshot, '+new Date(D.listDate+'T00:00:00Z').toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
+  $('#dFrom').min=$('#dTo').min=new Date(minD*864e5).toISOString().slice(0,10);
+  $('#dFrom').max=$('#dTo').max=new Date(maxD*864e5).toISOString().slice(0,10);
+  $('#loading').hidden=true; $('#app').hidden=false;
+  if(!bound){bound=true;setupDownloads();bind();setupShared()}
+  refresh();
+  $('#q').focus();
+}
+
+/* ---------- Filtering ---------- */
+function compute(){
+  const tokens=S.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  mask=new Uint16Array(N);
+  const hasT=S.types.size,hasC=S.cats.size,hasL=S.clss.size,hasS=S.spn.size,hasM=S.mfr.size,hasI=S.ing.size;
+  const ingSel=[...S.ing], from=S.from, to=S.to;
+  for(let i=0;i<N;i++){
+    let m=0;
+    for(let t=0;t<tokens.length;t++){ if(hay[i].indexOf(tokens[t])<0){m|=1;break} }
+    if(hasT&&!S.types.has(typeI[i])) m|=2;
+    if(hasC&&!S.cats.has(catI[i])) m|=4;
+    if(hasL&&!S.clss.has(clsI[i])) m|=8;
+    if(hasS&&!S.spn.has(spnI[i])) m|=16;
+    if(hasM&&!S.mfr.has(mfrI[i])) m|=32;
+    if(hasI){const r=rowIng[i]; if(!r) m|=64; else for(let k=0;k<ingSel.length;k++){ if(r.indexOf(ingSel[k])<0){m|=64;break} }}
+    if(from!=null||to!=null){const d=dateD[i]; if(d===NA||(from!=null&&d<from)||(to!=null&&d>to)) m|=128}
+    if((S.pi&&!hasPI[i])||(S.cmi&&!hasCMI[i])) m|=256;
+    mask[i]=m;
+  }
+  const cT=new Uint32Array(D.types.length),cC=new Uint32Array(D.cats.length),cL=new Uint32Array(D.clss.length);
+  const cS=new Uint32Array(D.spns.length),cM=new Uint32Array(D.mfrs.length),cI=new Uint32Array(D.ings.length);
+  const yc=new Uint32Array(maxYear-minYear+1);
+  for(let i=0;i<N;i++){
+    const m=mask[i];
+    if((m&~2)===0&&typeI[i]>=0) cT[typeI[i]]++;
+    if((m&~4)===0&&catI[i]>=0) cC[catI[i]]++;
+    if((m&~8)===0&&clsI[i]>=0) cL[clsI[i]]++;
+    if((m&~16)===0&&spnI[i]>=0) cS[spnI[i]]++;
+    if((m&~32)===0&&mfrI[i]>=0) cM[mfrI[i]]++;
+    if((m&~64)===0){const r=rowIng[i]; if(r) for(let k=0;k<r.length;k++) cI[r[k]]++}
+    if((m&~128)===0&&yearY[i]) yc[yearY[i]-minYear]++;
+  }
+  small.types.counts=cT;small.cats.counts=cC;small.clss.counts=cL;
+  big.spn.counts=cS;big.mfr.counts=cM;big.ing.counts=cI;
+  S._years=yc;
+  // ordered results
+  const ord=getOrder(S.sort), out=[];
+  for(let k=0;k<ord.length;k++){const i=ord[k]; if(mask[i]===0) out.push(i)}
+  R=out;
+}
+function getOrder(key){
+  if(orders[key]) return orders[key];
+  const a=new Array(N);for(let i=0;i<N;i++)a[i]=i;
+  const dd=i=>dateD[i]===NA?-1e9:dateD[i];
+  const cmpS=(x,y)=>x<y?-1:x>y?1:0;
+  if(key==='newest')a.sort((x,y)=>dd(y)-dd(x)||ids[y]-ids[x]);
+  else if(key==='oldest')a.sort((x,y)=>(dateD[x]===NA?1e9:dateD[x])-(dateD[y]===NA?1e9:dateD[y])||ids[x]-ids[y]);
+  else if(key==='name')a.sort((x,y)=>cmpS(nameL[x],nameL[y])||ids[x]-ids[y]);
+  else if(key==='sponsor')a.sort((x,y)=>cmpS(sponsorL[x],sponsorL[y])||cmpS(nameL[x],nameL[y]));
+  else a.sort((x,y)=>ids[y]-ids[x]);
+  return orders[key]=Int32Array.from(a);
+}
+
+/* ---------- Rendering ---------- */
+function optHTML(f,i,count,checked,desc){
+  const max=f._max||1, w=Math.round(100*count/max);
+  const d=desc?'<small>'+esc(desc)+'</small>':'';
+  return '<label class="opt" style="--w:'+w+'%"><input type="checkbox" data-f="'+f.key+'" data-v="'+i+'"'+(checked?' checked':'')+'><span class="olab">'+esc(f.names[i])+d+'</span><span class="ocnt">'+nf.format(count)+'</span></label>';
+}
+function renderSmall(f){
+  const set=S[f.key], cnt=f.counts, idx=[];
+  let max=0;
+  for(let i=0;i<f.names.length;i++){ if(cnt[i]>max)max=cnt[i]; if(cnt[i]>0||set.has(i)) idx.push(i) }
+  f._max=max;
+  idx.sort((a,b)=>cnt[b]-cnt[a]||(f.names[a]<f.names[b]?-1:1));
+  $('#l-'+f.key).innerHTML=idx.length?idx.map(i=>optHTML(f,i,cnt[i],set.has(i),f.key==='cats'?CATDESC[f.names[i]]:'')).join(''):'<div class="none">Nothing available with the current filters.</div>';
+  badge(f.key,set.size);
+}
+function renderBig(f){
+  const set=S[f.key], cnt=f.counts, q=f.q.trim().toLowerCase();
+  const cands=[];
+  for(let i=0;i<f.names.length;i++){
+    if(set.has(i)||!cnt[i]) continue;
+    if(q&&f.lower[i].indexOf(q)<0) continue;
+    cands.push(i);
+  }
+  cands.sort((a,b)=>cnt[b]-cnt[a]||(f.names[a]<f.names[b]?-1:1));
+  const shown=cands.slice(0,f.limit);
+  let max=0; for(const i of set) if(cnt[i]>max)max=cnt[i]; if(shown.length&&cnt[shown[0]]>max)max=cnt[shown[0]];
+  f._max=max;
+  let h='';
+  for(const i of set) h+=optHTML(f,i,cnt[i],true);
+  for(const i of shown) h+=optHTML(f,i,cnt[i],false);
+  if(!set.size&&!shown.length) h='<div class="none">'+(q?'No matches for “'+esc(f.q)+'”.':'Nothing available with the current filters.')+'</div>';
+  if(cands.length>shown.length) h+='<button type="button" class="more" data-more="'+f.key+'">Show '+Math.min(20,cands.length-shown.length)+' more ('+nf.format(cands.length-shown.length)+' left)</button>';
+  $('#l-'+f.key).innerHTML=h;
+  badge(f.key,set.size);
+}
+function badge(k,n){ $('#b-'+k).innerHTML=n?'<span class="badge">'+n+'</span>':'' }
+
+function renderChips(){
+  const c=[];
+  const add=(k,v,label,val)=>c.push('<span class="chip"><span><b>'+esc(label)+':</b> '+esc(val)+'</span><button type="button" aria-label="Remove '+esc(label)+' filter" data-rm="'+k+'" data-v="'+v+'">&times;</button></span>');
+  for(const i of S.types) add('types',i,'Type',D.types[i]);
+  for(const i of S.cats) add('cats',i,'Category',D.cats[i]);
+  for(const i of S.clss) add('clss',i,'Class',D.clss[i]);
+  for(const i of S.spn) add('spn',i,'Sponsor',D.spns[i]);
+  for(const i of S.mfr) add('mfr',i,'Manufacturer',D.mfrs[i]);
+  for(const i of S.ing) add('ing',i,'Ingredient',D.ings[i]);
+  if(S.from!=null||S.to!=null) add('date',0,'Registered',(S.from!=null?fmtDate(S.from):'earliest')+' to '+(S.to!=null?fmtDate(S.to):'latest'));
+  if(S.pi) add('pi',0,'Has','Product Information');
+  if(S.cmi) add('cmi',0,'Has','Consumer Medicine Information');
+  if(c.length>1) c.push('<button type="button" class="clear" data-clear>Clear all</button>');
+  $('#chips').innerHTML=c.join('');
+}
+function fmtDate(d){return new Date(d*864e5).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'})}
+function iso(d){return new Date(d*864e5).toISOString().slice(0,10)}
+
+function renderBars(){
+  const yc=S._years; let max=1; for(const v of yc) if(v>max)max=v;
+  const fy=S.from!=null?new Date(S.from*864e5).getUTCFullYear():null, ty=S.to!=null?new Date(S.to*864e5).getUTCFullYear():null;
+  const sel=fy!=null||ty!=null;
+  let h='';
+  for(let k=0;k<yc.length;k++){
+    const y=minYear+k, on=sel&&(fy==null||y>=fy)&&(ty==null||y<=ty);
+    const cls=sel?(on?'bar on':'bar off'):'bar';
+    h+='<button type="button" class="'+cls+'" data-year="'+y+'" style="height:'+Math.max(2,Math.round(100*yc[k]/max))+'%" title="'+y+': '+nf.format(yc[k])+' registered" aria-label="'+y+': '+nf.format(yc[k])+' registered"></button>';
+  }
+  $('#bars').innerHTML=h;
+  $('#ax0').textContent=minYear;$('#ax1').textContent=Math.round((minYear+maxYear)/2);$('#ax2').textContent=maxYear;
+}
+
+function hl(text,tokens){
+  let s=esc(text); if(!tokens.length) return s;
+  const re=new RegExp('('+tokens.map(t=>esc(t).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi');
+  return s.replace(re,'<mark class="mk">$1</mark>');
+}
+let openRow=null;
+function renderTable(){
+  const tokens=S.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const start=S.page*PS, slice=R.slice(start,start+PS);
+  const tb=$('#tbody');
+  $('#empty').hidden=R.length>0;
+  $('table').style.display=R.length?'':'none';
+  let h='';
+  for(const i of slice){
+    const sp=spnI[i]>=0?D.spns[spnI[i]]:'—', ty=typeI[i]>=0?D.types[typeI[i]]:'—';
+    h+='<tr class="row'+(openRow===i?' open':'')+'" data-i="'+i+'" tabindex="0" aria-expanded="'+(openRow===i)+'">'+
+      '<td class="c-id">'+ids[i]+'</td>'+
+      '<td class="c-name"><div class="pn">'+hl(D.name[i],tokens)+'</div><div class="sub-sponsor">'+hl(sp,tokens)+'</div></td>'+
+      '<td class="c-sponsor">'+hl(sp,tokens)+'</td>'+
+      '<td class="c-type"><span class="dot" style="background:'+(TYPECOL[ty]||'var(--muted)')+'"></span>'+esc(ty)+'</td>'+
+      '<td class="c-cat">'+(catI[i]>=0?esc(D.cats[catI[i]]):'—')+'</td>'+
+      '<td class="c-cls">'+(clsI[i]>=0?esc(D.clss[clsI[i]]):'—')+'</td>'+
+      '<td class="c-date">'+(dateD[i]===NA?'—':fmtDate(dateD[i]))+'</td></tr>';
+    if(openRow===i) h+=detailHTML(i);
+  }
+  tb.innerHTML=h;
+}
+function detailHTML(i){
+  const sp=spnI[i]>=0?D.spns[spnI[i]]:null, slug=sp?D.spnSlug[spnI[i]]:'';
+  let h='<tr class="detail"><td colspan="7"><dl class="dgrid">';
+  h+='<dt>Full title</dt><dd>'+esc(D.name[i])+'</dd>';
+  if(sp) h+='<dt>Sponsor</dt><dd><button type="button" class="inl" data-add="spn" data-v="'+spnI[i]+'" title="Filter to this sponsor">'+esc(sp)+'</button>'+(slug?' &nbsp;<a href="https://www.tga.gov.au/resources/sponsor/'+encodeURIComponent(slug)+'" target="_blank" rel="noopener">TGA sponsor page</a>':'')+'</dd>';
+  if(mfrI[i]>=0) h+='<dt>Manufacturer</dt><dd><button type="button" class="inl" data-add="mfr" data-v="'+mfrI[i]+'" title="Filter to this manufacturer">'+esc(D.mfrs[mfrI[i]])+'</button></dd>';
+  const r=rowIng[i];
+  if(r) h+='<dt>Ingredients</dt><dd class="ings">'+r.map(x=>'<button type="button" class="ing" data-add="ing" data-v="'+x+'" title="Add as a filter">'+esc(D.ings[x])+'</button>').join('')+'</dd>';
+  h+='<dt>Links</dt><dd class="links"><a href="'+artgUrl(i)+'" target="_blank" rel="noopener">ARTG entry</a><a href="'+summaryUrl(i)+'" target="_blank" rel="noopener">Public summary</a>';
+  if(hasPI[i]) h+='<a href="'+docUrl(D.pi[i])+'" target="_blank" rel="noopener">Product Information (PDF)</a>';
+  if(hasCMI[i]) h+='<a href="'+docUrl(D.cmi[i])+'" target="_blank" rel="noopener">Consumer Medicine Information (PDF)</a>';
+  return h+'</dd></dl></td></tr>';
+}
+const docUrl=v=>v.indexOf('http')===0?v:D.piPre+encodeURIComponent(v);
+const rawDoc=v=>v.indexOf('http')===0?v:D.piPre+v;
+const artgUrl=i=>'https://www.tga.gov.au/resources/artg/'+ids[i];
+const summaryUrl=i=>'https://www.ebs.tga.gov.au/servlet/xmlmillr6?dbid=ebs/PublicHTML/pdfStore.nsf&docid='+ids[i]+'&agid=(PrintDetailsPublic)&actionid=1';
+
+function renderHead(){
+  const n=R.length, a=n?S.page*PS+1:0, b=Math.min(n,(S.page+1)*PS);
+  $('#count').innerHTML=nf.format(n)+(n===1?' good':' goods')+'<small>'+(n===N?'The whole register':'of '+nf.format(N)+' in the register')+(n?', showing '+nf.format(a)+'–'+nf.format(b):'')+'</small>';
+  const pages=Math.max(1,Math.ceil(n/PS));
+  $('#pager').innerHTML=n?'<span>Page '+nf.format(S.page+1)+' of '+nf.format(pages)+'</span><span class="btns"><button type="button" data-p="first" '+(S.page===0?'disabled':'')+' aria-label="First page">«</button><button type="button" data-p="prev" '+(S.page===0?'disabled':'')+'>Previous</button><button type="button" data-p="next" '+(S.page>=pages-1?'disabled':'')+'>Next</button><button type="button" data-p="last" '+(S.page>=pages-1?'disabled':'')+' aria-label="Last page">»</button></span>':'';
+  $('#openFilters').textContent='Filters'+(activeCount()?' ('+activeCount()+')':'');
+  $('#closeFilters').textContent='Show '+nf.format(n)+' results';
+  $('#qx').hidden=!S.q;
+}
+function activeCount(){return S.types.size+S.cats.size+S.clss.size+S.spn.size+S.mfr.size+S.ing.size+((S.from!=null||S.to!=null)?1:0)+(S.pi?1:0)+(S.cmi?1:0)}
+
+function refresh(){
+  compute();
+  for(const k in small) renderSmall(small[k]);
+  for(const k in big) renderBig(big[k]);
+  renderChips(); renderBars(); renderTable(); renderHead();
+}
+function filtersChanged(){S.page=0;openRow=null;refresh()}
+function clearAll(){
+  ['types','cats','clss','spn','mfr','ing'].forEach(k=>S[k].clear());
+  S.from=S.to=null;S.pi=S.cmi=false;S.q='';
+  $('#q').value='';$('#dFrom').value='';$('#dTo').value='';$('#fPI').checked=false;$('#fCMI').checked=false;
+  filtersChanged();
+}
+
+/* ---------- Events ---------- */
+function bind(){
+  let t=null;
+  $('#q').addEventListener('input',e=>{clearTimeout(t);t=setTimeout(()=>{S.q=e.target.value;filtersChanged()},140)});
+  $('#qx').addEventListener('click',()=>{$('#q').value='';S.q='';filtersChanged();$('#q').focus()});
+  document.addEventListener('keydown',e=>{
+    if(e.key==='/'&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)&&!$('#app').hidden){e.preventDefault();$('#q').focus()}
+    if(e.key==='Escape'&&$('#filters').classList.contains('open'))$('#filters').classList.remove('open');
+  });
+  $('#filters').addEventListener('change',e=>{
+    const el=e.target;
+    if(el.dataset.f){
+      const set=S[el.dataset.f],v=+el.dataset.v;
+      el.checked?set.add(v):set.delete(v);
+      filtersChanged();
+    }
+  });
+  $('#filters').addEventListener('click',e=>{
+    const m=e.target.closest('[data-more]'); if(m){const f=big[m.dataset.more];f.limit+=20;renderBig(f)}
+  });
+  for(const k in big){
+    $('#s-'+k).addEventListener('input',e=>{const f=big[k];f.q=e.target.value;f.limit=f.q?12:8;renderBig(f)});
+  }
+  $('#dFrom').addEventListener('change',e=>{S.from=e.target.value?Date.parse(e.target.value)/864e5:null;filtersChanged()});
+  $('#dTo').addEventListener('change',e=>{S.to=e.target.value?Date.parse(e.target.value)/864e5:null;filtersChanged()});
+  $('#fPI').addEventListener('change',e=>{S.pi=e.target.checked;filtersChanged()});
+  $('#fCMI').addEventListener('change',e=>{S.cmi=e.target.checked;filtersChanged()});
+  $('#sort').addEventListener('change',e=>{S.sort=e.target.value;S.page=0;refresh()});
+  $('#chips').addEventListener('click',e=>{
+    if(e.target.closest('[data-clear]')){clearAll();return}
+    const b=e.target.closest('[data-rm]'); if(!b)return;
+    const k=b.dataset.rm;
+    if(k==='date'){S.from=S.to=null;$('#dFrom').value='';$('#dTo').value=''}
+    else if(k==='pi'){S.pi=false;$('#fPI').checked=false}
+    else if(k==='cmi'){S.cmi=false;$('#fCMI').checked=false}
+    else S[k].delete(+b.dataset.v);
+    filtersChanged();
+  });
+  $('#emptyClear').addEventListener('click',clearAll);
+  $('#bars').addEventListener('click',e=>{
+    const b=e.target.closest('[data-year]'); if(!b)return;
+    const y=+b.dataset.year, a=Date.UTC(y,0,1)/864e5, z=Date.UTC(y,11,31)/864e5;
+    const cur=S.from===a&&S.to===z;
+    if(e.shiftKey&&S.from!=null){
+      const fy=new Date(S.from*864e5).getUTCFullYear(), lo=Math.min(fy,y), hi=Math.max(fy,y);
+      S.from=Date.UTC(lo,0,1)/864e5;S.to=Date.UTC(hi,11,31)/864e5;
+    }else if(cur){S.from=S.to=null}
+    else{S.from=a;S.to=z}
+    $('#dFrom').value=S.from!=null?iso(S.from):'';$('#dTo').value=S.to!=null?iso(S.to):'';
+    filtersChanged();
+  });
+  $('#tbody').addEventListener('click',e=>{
+    const add=e.target.closest('[data-add]');
+    if(add){S[add.dataset.add].add(+add.dataset.v);filtersChanged();return}
+    if(e.target.closest('a'))return;
+    const tr=e.target.closest('tr.row'); if(!tr)return;
+    const i=+tr.dataset.i; openRow=openRow===i?null:i; renderTable();
+    const again=$('tr.row[data-i="'+i+'"]'); if(again&&openRow===i)again.focus({preventScroll:true});
+  });
+  $('#tbody').addEventListener('keydown',e=>{
+    if((e.key==='Enter'||e.key===' ')&&e.target.matches('tr.row')){e.preventDefault();e.target.click()}
+  });
+  $('#pager').addEventListener('click',e=>{
+    const b=e.target.closest('[data-p]'); if(!b)return;
+    const pages=Math.max(1,Math.ceil(R.length/PS)), p=b.dataset.p;
+    S.page=p==='first'?0:p==='last'?pages-1:p==='next'?Math.min(pages-1,S.page+1):Math.max(0,S.page-1);
+    openRow=null;renderTable();renderHead();
+    $('.rhead').scrollIntoView({block:'start',behavior:'auto'});
+  });
+  $('#openFilters').addEventListener('click',()=>$('#filters').classList.add('open'));
+  $('#closeFilters').addEventListener('click',()=>$('#filters').classList.remove('open'));
+  $('#export').addEventListener('click',exportCSV);
+}
+
+/* ---------- Export ---------- */
+function setupDownloads(){ dlMode='anchor'; $('#export').hidden=false }
+function csvCell(v){v=v==null?'':String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
+async function exportCSV(){
+  if(!R.length){toast('There are no results to export.');return}
+  const head=['ARTG ID','Product name','Sponsor','Registration type','Licence category','Licence class','Registered','Manufacturer','Ingredients','ARTG URL','Public summary URL','Product Information URL','Consumer Medicine Information URL'];
+  const rows=[head.join(',')];
+  for(const i of R){
+    rows.push([ids[i],D.name[i],spnI[i]>=0?D.spns[spnI[i]]:'',typeI[i]>=0?D.types[typeI[i]]:'',catI[i]>=0?D.cats[catI[i]]:'',clsI[i]>=0?D.clss[clsI[i]]:'',dateD[i]===NA?'':iso(dateD[i]),mfrI[i]>=0?D.mfrs[mfrI[i]]:'',rowIng[i]?rowIng[i].map(x=>D.ings[x]).join(' | '):'',artgUrl(i),summaryUrl(i),hasPI[i]?rawDoc(D.pi[i]):'',hasCMI[i]?rawDoc(D.cmi[i]):''].map(csvCell).join(','));
+  }
+  const blob=new Blob(['\uFEFF'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const fname='artg-filtered-'+R.length+'-goods.csv';
+  try{
+    {const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('Exported '+nf.format(R.length)+' goods.')}
+  }catch(ex){ toast('The export couldn’t be saved. Try again.') }
+}
+})();
+</script>
+</body>
+</html>

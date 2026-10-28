@@ -1,0 +1,5 @@
+/data/*
+  Cache-Control: no-cache
+/*
+  X-Content-Type-Options: nosniff
+  X-Robots-Tag: noindex
