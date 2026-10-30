@@ -62,6 +62,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .link{background:none;border:0;color:var(--muted);padding:6px 8px;border-radius:6px;font-weight:500}
 a.link{text-decoration:none;display:inline-block}
 .muted{color:var(--muted);font-size:12.5px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:2px 0 8px}
+.seg button{flex:1;border:0;background:var(--panel);padding:6px 8px;font-size:13px;font-weight:500;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink);font-weight:600}
 .link:hover{color:var(--ink);background:var(--hover)}
 .shell{display:grid;grid-template-columns:304px minmax(0,1fr);align-items:start}
 #filters{position:sticky;top:calc(var(--hh) + env(safe-area-inset-top,0px));max-height:calc(100vh - var(--hh) - env(safe-area-inset-top,0px));overflow:auto;background:var(--panel);border-right:1px solid var(--line);padding:6px 0 28px}
@@ -218,7 +222,7 @@ tr.detail td{padding:0 12px 16px 98px;background:var(--hover)}
       <details class="fs" open><summary>Licence category<span id="b-cats"></span></summary><div id="l-cats"></div></details>
       <details class="fs" open><summary>Licence class<span id="b-clss"></span></summary><div id="l-clss"></div></details>
       <details class="fs" open id="sec-sch" hidden><summary>Poison schedule<span id="b-sch"></span></summary><div id="l-sch"></div><div class="hint" id="schHint" style="margin-top:8px"></div></details>
-      <details class="fs" open id="sec-ps" hidden><summary>Ingredient in Poisons Standard<span id="b-ps"></span></summary><div id="l-ps"></div><div class="hint" id="psHint" style="margin-top:8px"></div></details>
+      <details class="fs" open id="sec-ps" hidden><summary>Ingredient in Poisons Standard<span id="b-ps"></span></summary><div class="seg" id="psMode" role="group" aria-label="Which schedules to show"><button type="button" data-mode="med" aria-pressed="true" title="The schedules that decide over the counter, prescription-only or controlled drug">S2, S3, S4, S8</button><button type="button" data-mode="all" aria-pressed="false" title="Every schedule the ingredient appears in, S2 to S10">All schedules</button></div><div id="l-ps"></div><div class="hint" id="psHint" style="margin-top:8px"></div></details>
       <details class="fs" open><summary>Sponsor<span id="b-spn"></span></summary>
         <input class="fsearch" id="s-spn" type="search" placeholder="Find a sponsor" aria-label="Find a sponsor"><div id="l-spn"></div></details>
       <details class="fs"><summary>Manufacturer<span id="b-mfr"></span></summary>
@@ -317,6 +321,8 @@ function setupShared(){}
 /* ---------- State ---------- */
 let D,N,ids,nameL,sponsorL,dateD,yearY,typeI,catI,clsI,spnI,mfrI,rowIng,hasPI,hasCMI,hay;
 const SCHED_LABELS={S2:'Pharmacy Medicine',S3:'Pharmacist Only Medicine',S4:'Prescription Only Medicine / Prescription Animal Remedy',S5:'Caution',S6:'Poison',S7:'Dangerous Poison',S8:'Controlled Drug',S9:'Prohibited Substance',S10:'Prohibited (sale banned)','Not scheduled':'Not in the Poisons Standard schedules'};
+let psMode='med',psInfo={med:0,all:0,reg:0};
+const MEDSET=new Set(['S2','S3','S4','S8']);
 let rowSch,rowPs,mask,R,minYear,maxYear,orders={},dlMode='none';
 const S={q:'',types:new Set(),cats:new Set(),clss:new Set(),sch:new Set(),ps:new Set(),spn:new Set(),mfr:new Set(),ing:new Set(),from:null,to:null,pi:false,cmi:false,sort:'newest',page:0};
 const CATDESC={INC:'Included device',RE:'Registered medicine',LI:'Listed medicine',IVD:'Included IVD device'};
@@ -326,7 +332,7 @@ const small={
   cats:{key:'cats',names:null,counts:null,label:'Category'},
   clss:{key:'clss',names:null,counts:null,label:'Class'},
   sch:{key:'sch',names:null,counts:null,label:'Schedule'},
-  ps:{key:'ps',names:['S2','S3','S4','S8'],counts:null,label:'Ingredient schedule'}
+  ps:{key:'ps',names:[],counts:null,label:'Ingredient schedule'}
 };
 const big={
   spn:{key:'spn',label:'Sponsor',names:null,lower:null,counts:null,q:'',limit:8},
@@ -335,6 +341,16 @@ const big={
 };
 const setOf=k=>S[k];
 
+function updatePsHint(){
+  const med=psMode==='med';
+  $('#psHint').textContent='Reference only. Registered medicines (RE) with an ingredient the Poisons Standard lists in '+(med?'S2, S3, S4 or S8':'any schedule')+': '+nf.format(med?psInfo.med:psInfo.all)+' of '+nf.format(psInfo.reg)+'. '+(med?'':'S5 and above are mostly household and industrial uses, so expect unrelated matches. ')+'Which schedule applies depends on strength, pack size and use.';
+  document.querySelectorAll('#psMode button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===psMode)));
+}
+function setPsMode(mode){
+  if(mode===psMode) return;
+  psMode=mode; updatePsHint();
+  if(mode==='med'){ for(const i of [...S.ps]) if(!MEDSET.has(small.ps.names[i])) S.ps.delete(i); filtersChanged() } else renderSmall(small.ps);
+}
 function resetState(){
   ['types','cats','clss','sch','ps','spn','mfr','ing'].forEach(k=>S[k].clear());
   S.q='';S.from=S.to=null;S.pi=S.cmi=false;S.page=0;S.sort='newest';
@@ -376,19 +392,21 @@ function start(data){
   if(D.schedRows) for(const k in D.schedRows) rowSch[+k]=D.schedRows[k];
   let meds=0,medsKnown=0; for(let i=0;i<N;i++){ if(D.types[typeI[i]]==='Medicine'){meds++; if(rowSch[i]) medsKnown++} }
   rowPs=new Array(N).fill(null);
-  let psGoods=0, regMeds=0;
+  psInfo={med:0,all:0,reg:0};
   if(D.ingPS){
-    const MAP={2:0,3:1,4:2,8:3};
+    const nums=new Set(); for(const k in D.ingPS) for(const n of D.ingPS[k].s) nums.add(n);
+    const list=[...nums].sort((x,y)=>x-y); small.ps.names=list.map(n=>'S'+n);
+    const MAP={}; list.forEach((n,ix)=>{MAP[n]=ix});
     for(let i=0;i<N;i++){
       if(D.types[typeI[i]]!=='Medicine'||catI[i]<0||D.cats[catI[i]].indexOf('RE')!==0) continue;
-      regMeds++;
+      psInfo.reg++;
       const r=rowIng[i]; if(!r) continue; let s=null;
-      for(let k=0;k<r.length;k++){const m=D.ingPS[r[k]]; if(m) for(const n of m.s){ if(n in MAP){ (s=s||new Set()).add(MAP[n]) } }}
-      if(s){ rowPs[i]=[...s].sort((a,b)=>a-b); psGoods++ }
+      for(let k=0;k<r.length;k++){const m=D.ingPS[r[k]]; if(m) for(const n of m.s){ (s=s||new Set()).add(MAP[n]) }}
+      if(s){ rowPs[i]=[...s].sort((x,y)=>x-y); psInfo.all++; if(rowPs[i].some(ix=>MEDSET.has(small.ps.names[ix]))) psInfo.med++ }
     }
-  }
+  } else small.ps.names=[];
   $('#sec-ps').hidden=!D.ingPS;
-  $('#psHint').textContent='Reference only. Registered medicines (RE) with an ingredient the Poisons Standard lists in that schedule: '+nf.format(psGoods)+' of '+nf.format(regMeds)+'. Which schedule actually applies depends on strength, pack size and use.';
+  updatePsHint();
   $('#sec-sch').hidden=!(D.scheds&&D.scheds.length);
   $('#schHint').textContent='Recorded for '+nf.format(medsKnown)+' of '+nf.format(meds)+' medicines so far. Goods without a recorded schedule are left out when you pick one.';
   big.spn.names=D.spns; big.spn.lower=D.spns.map(s=>s.toLowerCase());
@@ -424,7 +442,7 @@ function compute(){
     if((S.pi&&!hasPI[i])||(S.cmi&&!hasCMI[i])) m|=256;
     mask[i]=m;
   }
-  const cT=new Uint32Array(D.types.length),cC=new Uint32Array(D.cats.length),cL=new Uint32Array(D.clss.length),cSc=new Uint32Array((D.scheds||[]).length),cPs=new Uint32Array(4);
+  const cT=new Uint32Array(D.types.length),cC=new Uint32Array(D.cats.length),cL=new Uint32Array(D.clss.length),cSc=new Uint32Array((D.scheds||[]).length),cPs=new Uint32Array(small.ps.names.length);
   const cS=new Uint32Array(D.spns.length),cM=new Uint32Array(D.mfrs.length),cI=new Uint32Array(D.ings.length);
   const yc=new Uint32Array(maxYear-minYear+1);
   for(let i=0;i<N;i++){
@@ -469,7 +487,7 @@ function optHTML(f,i,count,checked,desc){
 function renderSmall(f){
   const set=S[f.key], cnt=f.counts, idx=[];
   let max=0;
-  for(let i=0;i<f.names.length;i++){ if(cnt[i]>max)max=cnt[i]; if(cnt[i]>0||set.has(i)) idx.push(i) }
+  for(let i=0;i<f.names.length;i++){ if(f.key==='ps'&&psMode==='med'&&!MEDSET.has(f.names[i])) continue; if(cnt[i]>max)max=cnt[i]; if(cnt[i]>0||set.has(i)) idx.push(i) }
   f._max=max;
   idx.sort((a,b)=>cnt[b]-cnt[a]||(f.names[a]<f.names[b]?-1:1));
   $('#l-'+f.key).innerHTML=idx.length?idx.map(i=>optHTML(f,i,cnt[i],set.has(i),f.key==='cats'?CATDESC[f.names[i]]:(f.key==='sch'||f.key==='ps')?(SCHED_LABELS[f.names[i]]||''):'')).join(''):'<div class="none">Nothing available with the current filters.</div>';
@@ -504,7 +522,7 @@ function renderChips(){
   for(const i of S.cats) add('cats',i,'Category',D.cats[i]);
   for(const i of S.clss) add('clss',i,'Class',D.clss[i]);
   for(const i of S.sch) add('sch',i,'Schedule',D.scheds[i]);
-  for(const i of S.ps) add('ps',i,'Ingredient in',['S2','S3','S4','S8'][i]);
+  for(const i of S.ps) add('ps',i,'Ingredient in',small.ps.names[i]);
   for(const i of S.spn) add('spn',i,'Sponsor',D.spns[i]);
   for(const i of S.mfr) add('mfr',i,'Manufacturer',D.mfrs[i]);
   for(const i of S.ing) add('ing',i,'Ingredient',D.ings[i]);
@@ -625,6 +643,7 @@ function bind(){
     }
   });
   $('#filters').addEventListener('click',e=>{
+    const pm=e.target.closest('#psMode [data-mode]'); if(pm){setPsMode(pm.dataset.mode);return}
     const m=e.target.closest('[data-more]'); if(m){const f=big[m.dataset.more];f.limit+=20;renderBig(f)}
   });
   for(const k in big){
