@@ -61,6 +61,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .top .sp{flex:1}
 .link{background:none;border:0;color:var(--muted);padding:6px 8px;border-radius:6px;font-weight:500}
 a.link{text-decoration:none;display:inline-block}
+.muted{color:var(--muted);font-size:12.5px}
 .link:hover{color:var(--ink);background:var(--hover)}
 .shell{display:grid;grid-template-columns:304px minmax(0,1fr);align-items:start}
 #filters{position:sticky;top:calc(var(--hh) + env(safe-area-inset-top,0px));max-height:calc(100vh - var(--hh) - env(safe-area-inset-top,0px));overflow:auto;background:var(--panel);border-right:1px solid var(--line);padding:6px 0 28px}
@@ -216,6 +217,8 @@ tr.detail td{padding:0 12px 16px 98px;background:var(--hover)}
       <details class="fs" open><summary>Registration type<span id="b-types"></span></summary><div id="l-types"></div></details>
       <details class="fs" open><summary>Licence category<span id="b-cats"></span></summary><div id="l-cats"></div></details>
       <details class="fs" open><summary>Licence class<span id="b-clss"></span></summary><div id="l-clss"></div></details>
+      <details class="fs" open id="sec-sch" hidden><summary>Poison schedule<span id="b-sch"></span></summary><div id="l-sch"></div><div class="hint" id="schHint" style="margin-top:8px"></div></details>
+      <details class="fs" open id="sec-ps" hidden><summary>Ingredient in Poisons Standard<span id="b-ps"></span></summary><div id="l-ps"></div><div class="hint" id="psHint" style="margin-top:8px"></div></details>
       <details class="fs" open><summary>Sponsor<span id="b-spn"></span></summary>
         <input class="fsearch" id="s-spn" type="search" placeholder="Find a sponsor" aria-label="Find a sponsor"><div id="l-spn"></div></details>
       <details class="fs"><summary>Manufacturer<span id="b-mfr"></span></summary>
@@ -313,14 +316,17 @@ function setupShared(){}
 
 /* ---------- State ---------- */
 let D,N,ids,nameL,sponsorL,dateD,yearY,typeI,catI,clsI,spnI,mfrI,rowIng,hasPI,hasCMI,hay;
-let mask,R,minYear,maxYear,orders={},dlMode='none';
-const S={q:'',types:new Set(),cats:new Set(),clss:new Set(),spn:new Set(),mfr:new Set(),ing:new Set(),from:null,to:null,pi:false,cmi:false,sort:'newest',page:0};
+const SCHED_LABELS={S2:'Pharmacy Medicine',S3:'Pharmacist Only Medicine',S4:'Prescription Only Medicine / Prescription Animal Remedy',S5:'Caution',S6:'Poison',S7:'Dangerous Poison',S8:'Controlled Drug',S9:'Prohibited Substance',S10:'Prohibited (sale banned)','Not scheduled':'Not in the Poisons Standard schedules'};
+let rowSch,rowPs,mask,R,minYear,maxYear,orders={},dlMode='none';
+const S={q:'',types:new Set(),cats:new Set(),clss:new Set(),sch:new Set(),ps:new Set(),spn:new Set(),mfr:new Set(),ing:new Set(),from:null,to:null,pi:false,cmi:false,sort:'newest',page:0};
 const CATDESC={INC:'Included device',RE:'Registered medicine',LI:'Listed medicine',IVD:'Included IVD device'};
 const TYPECOL={Device:'var(--t-device)',Medicine:'var(--t-medicine)',Biological:'var(--t-bio)'};
 const small={
   types:{key:'types',names:null,counts:null,label:'Registration type',order:'fixed'},
   cats:{key:'cats',names:null,counts:null,label:'Category'},
-  clss:{key:'clss',names:null,counts:null,label:'Class'}
+  clss:{key:'clss',names:null,counts:null,label:'Class'},
+  sch:{key:'sch',names:null,counts:null,label:'Schedule'},
+  ps:{key:'ps',names:['S2','S3','S4','S8'],counts:null,label:'Ingredient schedule'}
 };
 const big={
   spn:{key:'spn',label:'Sponsor',names:null,lower:null,counts:null,q:'',limit:8},
@@ -330,7 +336,7 @@ const big={
 const setOf=k=>S[k];
 
 function resetState(){
-  ['types','cats','clss','spn','mfr','ing'].forEach(k=>S[k].clear());
+  ['types','cats','clss','sch','ps','spn','mfr','ing'].forEach(k=>S[k].clear());
   S.q='';S.from=S.to=null;S.pi=S.cmi=false;S.page=0;S.sort='newest';
   openRow=null;orders={};
   for(const k in big){big[k].q='';big[k].limit=8;$('#s-'+k).value=''}
@@ -365,7 +371,26 @@ function start(data){
     const r=rowIng[i]; if(r) for(let j=0;j<r.length;j++) h+=' '+ingLow[r[j]];
     hay[i]=h;
   }
-  small.types.names=D.types; small.cats.names=D.cats; small.clss.names=D.clss;
+  small.types.names=D.types; small.cats.names=D.cats; small.clss.names=D.clss; small.sch.names=D.scheds||[];
+  rowSch=new Array(N).fill(null);
+  if(D.schedRows) for(const k in D.schedRows) rowSch[+k]=D.schedRows[k];
+  let meds=0,medsKnown=0; for(let i=0;i<N;i++){ if(D.types[typeI[i]]==='Medicine'){meds++; if(rowSch[i]) medsKnown++} }
+  rowPs=new Array(N).fill(null);
+  let psGoods=0, regMeds=0;
+  if(D.ingPS){
+    const MAP={2:0,3:1,4:2,8:3};
+    for(let i=0;i<N;i++){
+      if(D.types[typeI[i]]!=='Medicine'||catI[i]<0||D.cats[catI[i]].indexOf('RE')!==0) continue;
+      regMeds++;
+      const r=rowIng[i]; if(!r) continue; let s=null;
+      for(let k=0;k<r.length;k++){const m=D.ingPS[r[k]]; if(m) for(const n of m.s){ if(n in MAP){ (s=s||new Set()).add(MAP[n]) } }}
+      if(s){ rowPs[i]=[...s].sort((a,b)=>a-b); psGoods++ }
+    }
+  }
+  $('#sec-ps').hidden=!D.ingPS;
+  $('#psHint').textContent='Reference only. Registered medicines (RE) with an ingredient the Poisons Standard lists in that schedule: '+nf.format(psGoods)+' of '+nf.format(regMeds)+'. Which schedule actually applies depends on strength, pack size and use.';
+  $('#sec-sch').hidden=!(D.scheds&&D.scheds.length);
+  $('#schHint').textContent='Recorded for '+nf.format(medsKnown)+' of '+nf.format(meds)+' medicines so far. Goods without a recorded schedule are left out when you pick one.';
   big.spn.names=D.spns; big.spn.lower=D.spns.map(s=>s.toLowerCase());
   big.mfr.names=D.mfrs; big.mfr.lower=D.mfrs.map(s=>s.toLowerCase());
   big.ing.names=D.ings; big.ing.lower=ingLow;
@@ -382,7 +407,7 @@ function start(data){
 function compute(){
   const tokens=S.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   mask=new Uint16Array(N);
-  const hasT=S.types.size,hasC=S.cats.size,hasL=S.clss.size,hasS=S.spn.size,hasM=S.mfr.size,hasI=S.ing.size;
+  const hasPs=S.ps.size,hasSc=S.sch.size,hasT=S.types.size,hasC=S.cats.size,hasL=S.clss.size,hasS=S.spn.size,hasM=S.mfr.size,hasI=S.ing.size;
   const ingSel=[...S.ing], from=S.from, to=S.to;
   for(let i=0;i<N;i++){
     let m=0;
@@ -390,6 +415,8 @@ function compute(){
     if(hasT&&!S.types.has(typeI[i])) m|=2;
     if(hasC&&!S.cats.has(catI[i])) m|=4;
     if(hasL&&!S.clss.has(clsI[i])) m|=8;
+    if(hasPs){const r=rowPs[i]; let ok=false; if(r) for(let k=0;k<r.length;k++){ if(S.ps.has(r[k])){ok=true;break} } if(!ok) m|=1024}
+    if(hasSc){const r=rowSch[i]; let ok=false; if(r) for(let k=0;k<r.length;k++){ if(S.sch.has(r[k])){ok=true;break} } if(!ok) m|=512}
     if(hasS&&!S.spn.has(spnI[i])) m|=16;
     if(hasM&&!S.mfr.has(mfrI[i])) m|=32;
     if(hasI){const r=rowIng[i]; if(!r) m|=64; else for(let k=0;k<ingSel.length;k++){ if(r.indexOf(ingSel[k])<0){m|=64;break} }}
@@ -397,7 +424,7 @@ function compute(){
     if((S.pi&&!hasPI[i])||(S.cmi&&!hasCMI[i])) m|=256;
     mask[i]=m;
   }
-  const cT=new Uint32Array(D.types.length),cC=new Uint32Array(D.cats.length),cL=new Uint32Array(D.clss.length);
+  const cT=new Uint32Array(D.types.length),cC=new Uint32Array(D.cats.length),cL=new Uint32Array(D.clss.length),cSc=new Uint32Array((D.scheds||[]).length),cPs=new Uint32Array(4);
   const cS=new Uint32Array(D.spns.length),cM=new Uint32Array(D.mfrs.length),cI=new Uint32Array(D.ings.length);
   const yc=new Uint32Array(maxYear-minYear+1);
   for(let i=0;i<N;i++){
@@ -405,12 +432,14 @@ function compute(){
     if((m&~2)===0&&typeI[i]>=0) cT[typeI[i]]++;
     if((m&~4)===0&&catI[i]>=0) cC[catI[i]]++;
     if((m&~8)===0&&clsI[i]>=0) cL[clsI[i]]++;
+    if((m&~1024)===0){const r=rowPs[i]; if(r) for(let k=0;k<r.length;k++) cPs[r[k]]++}
+    if((m&~512)===0){const r=rowSch[i]; if(r) for(let k=0;k<r.length;k++) cSc[r[k]]++}
     if((m&~16)===0&&spnI[i]>=0) cS[spnI[i]]++;
     if((m&~32)===0&&mfrI[i]>=0) cM[mfrI[i]]++;
     if((m&~64)===0){const r=rowIng[i]; if(r) for(let k=0;k<r.length;k++) cI[r[k]]++}
     if((m&~128)===0&&yearY[i]) yc[yearY[i]-minYear]++;
   }
-  small.types.counts=cT;small.cats.counts=cC;small.clss.counts=cL;
+  small.types.counts=cT;small.cats.counts=cC;small.clss.counts=cL;small.sch.counts=cSc;small.ps.counts=cPs;
   big.spn.counts=cS;big.mfr.counts=cM;big.ing.counts=cI;
   S._years=yc;
   // ordered results
@@ -443,7 +472,7 @@ function renderSmall(f){
   for(let i=0;i<f.names.length;i++){ if(cnt[i]>max)max=cnt[i]; if(cnt[i]>0||set.has(i)) idx.push(i) }
   f._max=max;
   idx.sort((a,b)=>cnt[b]-cnt[a]||(f.names[a]<f.names[b]?-1:1));
-  $('#l-'+f.key).innerHTML=idx.length?idx.map(i=>optHTML(f,i,cnt[i],set.has(i),f.key==='cats'?CATDESC[f.names[i]]:'')).join(''):'<div class="none">Nothing available with the current filters.</div>';
+  $('#l-'+f.key).innerHTML=idx.length?idx.map(i=>optHTML(f,i,cnt[i],set.has(i),f.key==='cats'?CATDESC[f.names[i]]:(f.key==='sch'||f.key==='ps')?(SCHED_LABELS[f.names[i]]||''):'')).join(''):'<div class="none">Nothing available with the current filters.</div>';
   badge(f.key,set.size);
 }
 function renderBig(f){
@@ -474,6 +503,8 @@ function renderChips(){
   for(const i of S.types) add('types',i,'Type',D.types[i]);
   for(const i of S.cats) add('cats',i,'Category',D.cats[i]);
   for(const i of S.clss) add('clss',i,'Class',D.clss[i]);
+  for(const i of S.sch) add('sch',i,'Schedule',D.scheds[i]);
+  for(const i of S.ps) add('ps',i,'Ingredient in',['S2','S3','S4','S8'][i]);
   for(const i of S.spn) add('spn',i,'Sponsor',D.spns[i]);
   for(const i of S.mfr) add('mfr',i,'Manufacturer',D.mfrs[i]);
   for(const i of S.ing) add('ing',i,'Ingredient',D.ings[i]);
@@ -533,6 +564,12 @@ function detailHTML(i){
   h+='<dt>Full title</dt><dd>'+esc(D.name[i])+'</dd>';
   if(sp) h+='<dt>Sponsor</dt><dd><button type="button" class="inl" data-add="spn" data-v="'+spnI[i]+'" title="Filter to this sponsor">'+esc(sp)+'</button>'+(slug?' &nbsp;<a href="https://www.tga.gov.au/resources/sponsor/'+encodeURIComponent(slug)+'" target="_blank" rel="noopener">TGA sponsor page</a>':'')+'</dd>';
   if(mfrI[i]>=0) h+='<dt>Manufacturer</dt><dd><button type="button" class="inl" data-add="mfr" data-v="'+mfrI[i]+'" title="Filter to this manufacturer">'+esc(D.mfrs[mfrI[i]])+'</button></dd>';
+  if(D.ingPS&&D.types[typeI[i]]==='Medicine'&&catI[i]>=0&&D.cats[catI[i]].indexOf('RE')===0&&rowIng[i]){
+    const lines=[]; for(const x of rowIng[i]){ const m=D.ingPS[x]; if(m) lines.push('<b>'+esc(D.ings[x])+'</b>: '+m.s.map(n=>'S'+n).join(', ')+(m.m==='b'?' <span class="muted">(matched on the base substance)</span>':'')) }
+    if(lines.length) h+='<dt>Poisons Standard (by ingredient)</dt><dd>'+lines.join('<br>')+'<div class="muted" style="margin-top:4px">Reference only (registered medicines). These are the schedules each ingredient appears in. Which one applies to this product depends on its strength, pack size and use; the product’s own schedule is shown above where the TGA has recorded it.</div></dd>';
+  }
+  const sr=rowSch[i];
+  if(sr) h+='<dt>Poison schedule</dt><dd>'+sr.map(x=>esc(D.scheds[x])+((D.schedNames||{})[D.scheds[x]]?' ('+esc(D.schedNames[D.scheds[x]])+')':'')).join(' and ')+'</dd>';
   const r=rowIng[i];
   if(r) h+='<dt>Ingredients</dt><dd class="ings">'+r.map(x=>'<button type="button" class="ing" data-add="ing" data-v="'+x+'" title="Add as a filter">'+esc(D.ings[x])+'</button>').join('')+'</dd>';
   h+='<dt>Links</dt><dd class="links"><a href="'+artgUrl(i)+'" target="_blank" rel="noopener">ARTG entry</a><a href="'+summaryUrl(i)+'" target="_blank" rel="noopener">Public summary</a>';
@@ -554,7 +591,7 @@ function renderHead(){
   $('#closeFilters').textContent='Show '+nf.format(n)+' results';
   $('#qx').hidden=!S.q;
 }
-function activeCount(){return S.types.size+S.cats.size+S.clss.size+S.spn.size+S.mfr.size+S.ing.size+((S.from!=null||S.to!=null)?1:0)+(S.pi?1:0)+(S.cmi?1:0)}
+function activeCount(){return S.types.size+S.cats.size+S.clss.size+S.sch.size+S.ps.size+S.spn.size+S.mfr.size+S.ing.size+((S.from!=null||S.to!=null)?1:0)+(S.pi?1:0)+(S.cmi?1:0)}
 
 function refresh(){
   compute();
@@ -564,7 +601,7 @@ function refresh(){
 }
 function filtersChanged(){S.page=0;openRow=null;refresh()}
 function clearAll(){
-  ['types','cats','clss','spn','mfr','ing'].forEach(k=>S[k].clear());
+  ['types','cats','clss','sch','ps','spn','mfr','ing'].forEach(k=>S[k].clear());
   S.from=S.to=null;S.pi=S.cmi=false;S.q='';
   $('#q').value='';$('#dFrom').value='';$('#dTo').value='';$('#fPI').checked=false;$('#fCMI').checked=false;
   filtersChanged();
@@ -650,10 +687,10 @@ function csvCell(v){v=v==null?'':String(v);return /[",\n\r]/.test(v)?'"'+v.repla
 function toast(msg){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3200)}
 async function exportCSV(){
   if(!R.length){toast('There are no results to export.');return}
-  const head=['ARTG ID','Product name','Sponsor','Registration type','Licence category','Licence class','Registered','Manufacturer','Ingredients','ARTG URL','Public summary URL','Product Information URL','Consumer Medicine Information URL'];
+  const head=['ARTG ID','Product name','Sponsor','Registration type','Licence category','Licence class','Poison schedule','Ingredient schedules (reference)','Registered','Manufacturer','Ingredients','ARTG URL','Public summary URL','Product Information URL','Consumer Medicine Information URL'];
   const rows=[head.join(',')];
   for(const i of R){
-    rows.push([ids[i],D.name[i],spnI[i]>=0?D.spns[spnI[i]]:'',typeI[i]>=0?D.types[typeI[i]]:'',catI[i]>=0?D.cats[catI[i]]:'',clsI[i]>=0?D.clss[clsI[i]]:'',dateD[i]===NA?'':iso(dateD[i]),mfrI[i]>=0?D.mfrs[mfrI[i]]:'',rowIng[i]?rowIng[i].map(x=>D.ings[x]).join(' | '):'',artgUrl(i),summaryUrl(i),hasPI[i]?rawDoc(D.pi[i]):'',hasCMI[i]?rawDoc(D.cmi[i]):''].map(csvCell).join(','));
+    rows.push([ids[i],D.name[i],spnI[i]>=0?D.spns[spnI[i]]:'',typeI[i]>=0?D.types[typeI[i]]:'',catI[i]>=0?D.cats[catI[i]]:'',clsI[i]>=0?D.clss[clsI[i]]:'',rowSch[i]?rowSch[i].map(x=>D.scheds[x]).join(' | '):'',(D.ingPS&&D.types[typeI[i]]==='Medicine'&&catI[i]>=0&&D.cats[catI[i]].indexOf('RE')===0&&rowIng[i])?rowIng[i].filter(x=>D.ingPS[x]).map(x=>D.ings[x]+': '+D.ingPS[x].s.map(n=>'S'+n).join('/')).join(' | '):'',dateD[i]===NA?'':iso(dateD[i]),mfrI[i]>=0?D.mfrs[mfrI[i]]:'',rowIng[i]?rowIng[i].map(x=>D.ings[x]).join(' | '):'',artgUrl(i),summaryUrl(i),hasPI[i]?rawDoc(D.pi[i]):'',hasCMI[i]?rawDoc(D.cmi[i]):''].map(csvCell).join(','));
   }
   const blob=new Blob(['\uFEFF'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
   const fname='artg-filtered-'+R.length+'-goods.csv';
